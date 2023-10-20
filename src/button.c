@@ -84,7 +84,7 @@ static void button_task(void *pvParameter)
                 send_event(debounce[idx], BUTTON_DOWN);
             } 
         }
-        vTaskDelay(10/portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
