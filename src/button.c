@@ -18,7 +18,6 @@ typedef struct {
   uint8_t pin;
   bool inverted;
   uint16_t history;
-  uint32_t down_time;
   uint32_t next_long_time;
 } debounce_t;
 
@@ -72,17 +71,16 @@ static void button_task(void *pvParameter)
         for (int idx=0; idx<pin_count; idx++) {
             update_button(&debounce[idx]);
             if (button_up(&debounce[idx])) {
-                debounce[idx].down_time = 0;
+                debounce[idx].next_long_time = 0;
                 ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_UP);
-            } else if (debounce[idx].down_time && millis() >= debounce[idx].next_long_time) {
+            } else if (debounce[idx].next_long_time && millis() >= debounce[idx].next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
                 debounce[idx].next_long_time = debounce[idx].next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
                 send_event(debounce[idx], BUTTON_HELD);
-            } else if (button_down(&debounce[idx]) && debounce[idx].down_time == 0) {
-                debounce[idx].down_time = millis();
+            } else if (button_down(&debounce[idx]) && debounce[idx].next_long_time == 0) {
                 ESP_LOGI(TAG, "%d DOWN", debounce[idx].pin);
-                debounce[idx].next_long_time = debounce[idx].down_time + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
+                debounce[idx].next_long_time = millis() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
                 send_event(debounce[idx], BUTTON_DOWN);
             } 
         }
@@ -129,7 +127,7 @@ QueueHandle_t pulled_button_init(unsigned long long pin_select, gpio_pull_mode_t
         if ((1ULL<<pin) & pin_select) {
             ESP_LOGI(TAG, "Registering button input: %d", pin);
             debounce[idx].pin = pin;
-            debounce[idx].down_time = 0;
+            debounce[idx].next_long_time = 0;
             debounce[idx].inverted = true;
             if (debounce[idx].inverted) debounce[idx].history = 0xffff;
             idx++;
