@@ -1,6 +1,7 @@
 #ifndef ESP32_BUTTON_H
 #define ESP32_BUTTON_H
 
+#include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
 
