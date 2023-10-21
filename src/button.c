@@ -88,12 +88,12 @@ static void button_task(void *pvParameter)
     }
 }
 
-QueueHandle_t button_init(unsigned long long pin_select) {
+QueueHandle_t button_init(uint64_t pin_select) {
     return pulled_button_init(pin_select, GPIO_FLOATING);
 }
 
 
-QueueHandle_t pulled_button_init(unsigned long long pin_select, gpio_pull_mode_t pull_mode)
+QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
 {
     if (pin_count != -1) {
         ESP_LOGI(TAG, "Already initialized");
