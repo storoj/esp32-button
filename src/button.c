@@ -107,7 +107,7 @@ QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode
     io_conf.pull_up_en = (pull_mode == GPIO_PULLUP_ONLY || pull_mode == GPIO_PULLUP_PULLDOWN);
     io_conf.pull_down_en = (pull_mode == GPIO_PULLDOWN_ONLY || pull_mode == GPIO_PULLUP_PULLDOWN);
     io_conf.pin_bit_mask = pin_select;
-    gpio_config(&io_conf);
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
 
     // Scan the pin map to determine number of pins
     pin_count = 0;
