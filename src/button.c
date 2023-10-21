@@ -26,33 +26,24 @@ debounce_t * debounce;
 QueueHandle_t queue;
 
 static void update_button(debounce_t *d) {
-    d->history = (d->history << 1) | gpio_get_level(d->pin);
+    d->history = (d->history << 1) | ((d->inverted ^ gpio_get_level(d->pin)) & 1);
 }
 
 #define MASK   0b1111000000111111
-static bool button_rose(debounce_t *d) {
+static bool button_down(debounce_t *d) {
     if ((d->history & MASK) == 0b0000000000111111) {
         d->history = 0xffff;
         return 1;
     }
     return 0;
 }
-static bool button_fell(debounce_t *d) {
+static bool button_up(debounce_t *d) {
     if ((d->history & MASK) == 0b1111000000000000) {
         d->history = 0x0000;
         return 1;
     }
     return 0;
 }
-static bool button_down(debounce_t *d) {
-    if (d->inverted) return button_fell(d);
-    return button_rose(d);
-}
-static bool button_up(debounce_t *d) {
-    if (d->inverted) return button_rose(d);
-    return button_fell(d);
-}
-
 static uint32_t millis() {
     return esp_timer_get_time() / 1000;
 }
@@ -129,7 +120,6 @@ QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode
             debounce[idx].pin = pin;
             debounce[idx].next_long_time = 0;
             debounce[idx].inverted = true;
-            if (debounce[idx].inverted) debounce[idx].history = 0xffff;
             idx++;
         }
     }
