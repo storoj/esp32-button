@@ -45,7 +45,7 @@ static bool button_up(debounce_t *d) {
     return 0;
 }
 
-static void send_event(gpio_num_t pin, int ev) {
+static void send_event(gpio_num_t pin, button_event_type_t ev) {
     button_event_t event = {
         .pin = pin,
         .event = ev,

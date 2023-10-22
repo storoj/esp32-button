@@ -25,13 +25,15 @@
 extern "C" {
 #endif
 
-#define BUTTON_DOWN (1)
-#define BUTTON_UP (2)
-#define BUTTON_HELD (3)
+typedef enum {
+    BUTTON_DOWN,
+    BUTTON_UP,
+    BUTTON_HELD,
+} button_event_type_t;
 
 typedef struct {
     gpio_num_t pin;
-    uint8_t event;
+    button_event_type_t event;
 } button_event_t;
 
 QueueHandle_t button_init(uint64_t pin_select);
