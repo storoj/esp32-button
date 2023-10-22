@@ -28,20 +28,6 @@ QueueHandle_t queue;
 #define LAST   0b0000000000111111
 #define PREV   0b1111000000000000
 #define MASK   (LAST | PREV)
-static bool button_down(debounce_t *d) {
-    if ((d->history & MASK) == LAST) {
-        d->history = 0xffff;
-        return 1;
-    }
-    return 0;
-}
-static bool button_up(debounce_t *d) {
-    if ((d->history & MASK) == PREV) {
-        d->history = 0x0000;
-        return 1;
-    }
-    return 0;
-}
 
 static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t ev) {
     button_event_t event = {
@@ -57,16 +43,18 @@ static void button_task(void *pvParameter)
         for (int idx=0; idx<pin_count; idx++) {
             debounce_t *d = &debounce[idx];
             d->history = (d->history << 1) | ((d->inverted ^ gpio_get_level(d->pin)) & 1);
-            if (button_up(d)) {
+            if ((d->history & MASK) == PREV) {
                 ESP_LOGI(TAG, "%d UP", d->pin);
+                d->history = 0x0000;
                 d->next_long_time = INT64_MAX;
                 send_event(queue, d->pin, BUTTON_UP);
             } else if (esp_timer_get_time() >= d->next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", d->pin);
                 d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
                 send_event(queue, d->pin, BUTTON_HELD);
-            } else if (button_down(d) && d->next_long_time == 0) {
+            } else if ((d->history & MASK) == LAST && d->next_long_time == 0) {
                 ESP_LOGI(TAG, "%d DOWN", d->pin);
+                d->history = 0xffff;
                 d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
                 send_event(queue, d->pin, BUTTON_DOWN);
             } 
