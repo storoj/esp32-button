@@ -58,12 +58,12 @@ static void button_task(void *pvParameter)
               // down
               d->history = 0b11111111;
               ESP_LOGI(TAG, "%d DOWN", d->pin);
-              d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
+              d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS * 1000;
               send_event(queue, d->pin, BUTTON_DOWN);
             } else if (esp_timer_get_time() >= d->next_long_time) {
               //repeat
               ESP_LOGI(TAG, "%d LONG", d->pin);
-              d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
+              d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS * 1000;
               send_event(queue, d->pin, BUTTON_HELD);
             }
         }
