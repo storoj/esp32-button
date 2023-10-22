@@ -59,10 +59,10 @@ static void button_task(void *pvParameter)
         for (int idx=0; idx<pin_count; idx++) {
             update_button(&debounce[idx]);
             if (button_up(&debounce[idx])) {
-                debounce[idx].next_long_time = 0;
+                debounce[idx].next_long_time = INT64_MAX;
                 ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_UP);
-            } else if (debounce[idx].next_long_time && esp_timer_get_time() >= debounce[idx].next_long_time) {
+            } else if (esp_timer_get_time() >= debounce[idx].next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
                 debounce[idx].next_long_time = debounce[idx].next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
                 send_event(debounce[idx], BUTTON_HELD);
@@ -115,7 +115,7 @@ QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode
         if (BIT64(pin) & pin_select) {
             ESP_LOGI(TAG, "Registering button input: %d", pin);
             debounce[idx].pin = pin;
-            debounce[idx].next_long_time = 0;
+            debounce[idx].next_long_time = INT64_MAX;
             debounce[idx].inverted = true;
             idx++;
         }
