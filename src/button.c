@@ -17,7 +17,7 @@
 typedef struct {
   gpio_num_t pin;
   bool inverted;
-  uint16_t history;
+  uint8_t history;
   int64_t next_long_time;
 } debounce_t;
 
@@ -25,9 +25,6 @@ int pin_count = -1;
 debounce_t * debounce;
 QueueHandle_t queue;
 
-#define LAST   0b0000000000111111
-#define PREV   0b1111000000000000
-#define MASK   (LAST | PREV)
 
 static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t ev) {
     button_event_t event = {
@@ -42,33 +39,39 @@ static void button_task(void *pvParameter)
     for (;;) {
         for (int idx=0; idx<pin_count; idx++) {
             debounce_t *d = &debounce[idx];
-            d->history = (d->history << 1) | ((d->inverted ^ gpio_get_level(d->pin)) & 1);
-            if ((d->history & MASK) == PREV) {
-                ESP_LOGI(TAG, "%d UP", d->pin);
-                d->history = 0x0000;
-                d->next_long_time = INT64_MAX;
-                send_event(queue, d->pin, BUTTON_UP);
+
+            uint8_t pressed = d->history & 0b10000000;
+            d->history = (d->history << 1) | (d->inverted ^ gpio_get_level(d->pin)) | pressed;
+
+            if (d->history == 0b10000000) {
+              // up
+              d->history = 0b00000000;
+              ESP_LOGI(TAG, "%d UP", d->pin);
+              d->next_long_time = INT64_MAX;
+              send_event(queue, d->pin, BUTTON_UP);
+            } else if (d->history == 0b01111111) {
+              // down
+              d->history = 0b11111111;
+              ESP_LOGI(TAG, "%d DOWN", d->pin);
+              d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
+              send_event(queue, d->pin, BUTTON_DOWN);
             } else if (esp_timer_get_time() >= d->next_long_time) {
-                ESP_LOGI(TAG, "%d LONG", d->pin);
-                d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
-                send_event(queue, d->pin, BUTTON_HELD);
-            } else if ((d->history & MASK) == LAST && d->next_long_time == 0) {
-                ESP_LOGI(TAG, "%d DOWN", d->pin);
-                d->history = 0xffff;
-                d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
-                send_event(queue, d->pin, BUTTON_DOWN);
-            } 
+              //repeat
+              ESP_LOGI(TAG, "%d LONG", d->pin);
+              d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
+              send_event(queue, d->pin, BUTTON_HELD);
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-QueueHandle_t button_init(uint64_t pin_select) {
+button_config_t button_init(uint64_t pin_select) {
     return pulled_button_init(pin_select, GPIO_FLOATING);
 }
 
 
-QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
+button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
 {
     if (pin_count != -1) {
         ESP_LOGI(TAG, "Already initialized");
