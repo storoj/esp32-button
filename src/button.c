@@ -36,10 +36,11 @@ static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t 
 
 static void button_task(void *pvParameter)
 {
-    for (;;) {
-        for (int idx=0; idx<pin_count; idx++) {
-            debounce_t *d = &debounce[idx];
+    debounce_t *d_begin = debounce;
+    debounce_t *d_end = d_begin + pin_count;
 
+    for (;;) {
+        for (debounce_t *d=d_begin; d<d_end; d++) {
             uint8_t pressed = d->history & 0b10000000;
             d->history = (d->history << 1) | (d->inverted ^ gpio_get_level(d->pin)) | pressed;
 
