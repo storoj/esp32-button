@@ -1,9 +1,10 @@
 #ifndef ESP32_BUTTON_H
 #define ESP32_BUTTON_H
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "driver/gpio.h"
+#include <stdint.h>
+
+#include "freertos/portmacro.h"
+#include "hal/gpio_types.h"
 
 #ifndef CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS
 #define CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS (2000)
@@ -36,8 +37,13 @@ typedef struct {
     button_event_type_t event;
 } button_event_t;
 
-QueueHandle_t button_init(uint64_t pin_select);
-QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode);
+struct button_config;
+typedef struct button_config *button_config_t;
+
+button_config_t button_init(uint64_t pin_select);
+button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode);
+BaseType_t button_poll(button_config_t btn, button_event_t *e, TickType_t ticksToWait);
+void button_free(button_config_t btn);
 
 #ifdef __cplusplus
 }

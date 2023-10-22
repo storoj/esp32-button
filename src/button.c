@@ -21,10 +21,12 @@ typedef struct {
   int64_t next_long_time;
 } debounce_t;
 
-int pin_count = -1;
-debounce_t * debounce;
-QueueHandle_t queue;
-
+struct button_config {
+  TaskHandle_t task;
+  QueueHandle_t queue;
+  debounce_t *debounce;
+  int pin_count;
+};
 
 static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t ev) {
     button_event_t event = {
@@ -36,8 +38,10 @@ static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t 
 
 static void button_task(void *pvParameter)
 {
-    debounce_t *d_begin = debounce;
-    debounce_t *d_end = d_begin + pin_count;
+    button_config_t cfg = (button_config_t)pvParameter;
+    debounce_t *d_begin = cfg->debounce;
+    debounce_t *d_end = d_begin + cfg->pin_count;
+    QueueHandle_t queue = cfg->queue;
 
     for (;;) {
         for (debounce_t *d=d_begin; d<d_end; d++) {
@@ -67,6 +71,45 @@ static void button_task(void *pvParameter)
     }
 }
 
+static debounce_t *debounce_alloc(uint64_t pin_select, int *num_pins) {
+    // Scan the pin map to determine number of pins
+    int pin_count = 0;
+    for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
+        if (BIT64(pin) & pin_select) {
+            pin_count++;
+        }
+    }
+
+    debounce_t *debounce = calloc(pin_count, sizeof(debounce_t));
+    if (!debounce) {
+      return NULL;
+    }
+
+    // Scan the pin map to determine each pin number, populate the state
+    uint32_t idx = 0;
+    for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
+        if (BIT64(pin) & pin_select) {
+            debounce[idx].pin = pin;
+            debounce[idx].history = 0;
+            debounce[idx].next_long_time = INT64_MAX;
+            debounce[idx].inverted = true;
+            idx++;
+        }
+    }
+
+    if (num_pins) *num_pins = pin_count;
+    return debounce;
+}
+
+void button_free(button_config_t btn) {
+  if (btn) {
+    if (btn->debounce) free(btn->debounce);
+    if (btn->queue) vQueueDelete(btn->queue);
+    if (btn->task) vTaskDelete(btn->task);
+  }
+}
+
+
 button_config_t button_init(uint64_t pin_select) {
     return pulled_button_init(pin_select, GPIO_FLOATING);
 }
@@ -74,9 +117,36 @@ button_config_t button_init(uint64_t pin_select) {
 
 button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
 {
-    if (pin_count != -1) {
-        ESP_LOGI(TAG, "Already initialized");
-        return NULL;
+    button_config_t btn = (button_config_t)calloc(1, sizeof(struct button_config));
+    if (!btn) {
+      ESP_LOGE(TAG, "Failed to allocate a button");
+      goto cleanup;
+    }
+
+    btn->debounce = debounce_alloc(pin_select, &btn->pin_count);
+    if (!btn->debounce) {
+      ESP_LOGE(TAG, "Failed to allocate a buffer for pins");
+      goto cleanup;
+    }
+
+    btn->queue = xQueueCreate(CONFIG_ESP32_BUTTON_QUEUE_SIZE, sizeof(button_event_t));
+    if (!btn->queue) {
+      ESP_LOGE(TAG, "Failed to create a queue");
+      goto cleanup;
+    }
+
+    // Spawn a task to monitor the pins
+    if (pdPASS != xTaskCreate(
+          &button_task,
+          "button_task",
+          CONFIG_ESP32_BUTTON_TASK_STACK_SIZE,
+          btn,
+          10,
+          &btn->task
+        ))
+    {
+      ESP_LOGE(TAG, "Failed to create a task");
+      goto cleanup;
     }
 
     // Configure the pins
@@ -88,32 +158,14 @@ button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mo
     io_conf.pin_bit_mask = pin_select;
     ESP_ERROR_CHECK(gpio_config(&io_conf));
 
-    // Scan the pin map to determine number of pins
-    pin_count = 0;
-    for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
-        if (BIT64(pin) & pin_select) {
-            pin_count++;
-        }
-    }
+    return btn;
 
-    // Initialize global state and queue
-    debounce = calloc(pin_count, sizeof(debounce_t));
-    queue = xQueueCreate(CONFIG_ESP32_BUTTON_QUEUE_SIZE, sizeof(button_event_t));
-
-    // Scan the pin map to determine each pin number, populate the state
-    uint32_t idx = 0;
-    for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
-        if (BIT64(pin) & pin_select) {
-            ESP_LOGI(TAG, "Registering button input: %d", pin);
-            debounce[idx].pin = pin;
-            debounce[idx].next_long_time = INT64_MAX;
-            debounce[idx].inverted = true;
-            idx++;
-        }
-    }
-
-    // Spawn a task to monitor the pins
-    xTaskCreate(&button_task, "button_task", CONFIG_ESP32_BUTTON_TASK_STACK_SIZE, NULL, 10, NULL);
-
-    return queue;
+cleanup:
+    button_free(btn);
+    return NULL;
 }
+
+BaseType_t button_poll(button_config_t btn, button_event_t *e, TickType_t ticksToWait) {
+  return xQueueReceive(btn->queue, e, ticksToWait);
+}
+
