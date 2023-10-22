@@ -45,9 +45,9 @@ static bool button_up(debounce_t *d) {
     return 0;
 }
 
-static void send_event(debounce_t db, int ev) {
+static void send_event(gpio_num_t pin, int ev) {
     button_event_t event = {
-        .pin = db.pin,
+        .pin = pin,
         .event = ev,
     };
     xQueueSend(queue, &event, portMAX_DELAY);
@@ -61,15 +61,15 @@ static void button_task(void *pvParameter)
             if (button_up(&debounce[idx])) {
                 debounce[idx].next_long_time = INT64_MAX;
                 ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
-                send_event(debounce[idx], BUTTON_UP);
+                send_event(debounce[idx].pin, BUTTON_UP);
             } else if (esp_timer_get_time() >= debounce[idx].next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
                 debounce[idx].next_long_time = debounce[idx].next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
-                send_event(debounce[idx], BUTTON_HELD);
+                send_event(debounce[idx].pin, BUTTON_HELD);
             } else if (button_down(&debounce[idx]) && debounce[idx].next_long_time == 0) {
                 ESP_LOGI(TAG, "%d DOWN", debounce[idx].pin);
                 debounce[idx].next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
-                send_event(debounce[idx], BUTTON_DOWN);
+                send_event(debounce[idx].pin, BUTTON_DOWN);
             } 
         }
         vTaskDelay(pdMS_TO_TICKS(10));
