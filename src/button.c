@@ -18,7 +18,7 @@ typedef struct {
   gpio_num_t pin;
   bool inverted;
   uint16_t history;
-  uint32_t next_long_time;
+  int64_t next_long_time;
 } debounce_t;
 
 int pin_count = -1;
@@ -44,9 +44,6 @@ static bool button_up(debounce_t *d) {
     }
     return 0;
 }
-static uint32_t millis() {
-    return esp_timer_get_time() / 1000;
-}
 
 static void send_event(debounce_t db, int ev) {
     button_event_t event = {
@@ -65,13 +62,13 @@ static void button_task(void *pvParameter)
                 debounce[idx].next_long_time = 0;
                 ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
                 send_event(debounce[idx], BUTTON_UP);
-            } else if (debounce[idx].next_long_time && millis() >= debounce[idx].next_long_time) {
+            } else if (debounce[idx].next_long_time && esp_timer_get_time() >= debounce[idx].next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
                 debounce[idx].next_long_time = debounce[idx].next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
                 send_event(debounce[idx], BUTTON_HELD);
             } else if (button_down(&debounce[idx]) && debounce[idx].next_long_time == 0) {
                 ESP_LOGI(TAG, "%d DOWN", debounce[idx].pin);
-                debounce[idx].next_long_time = millis() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
+                debounce[idx].next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
                 send_event(debounce[idx], BUTTON_DOWN);
             } 
         }
