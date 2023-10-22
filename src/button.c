@@ -57,19 +57,20 @@ static void button_task(void *pvParameter)
 {
     for (;;) {
         for (int idx=0; idx<pin_count; idx++) {
-            update_button(&debounce[idx]);
-            if (button_up(&debounce[idx])) {
-                debounce[idx].next_long_time = INT64_MAX;
-                ESP_LOGI(TAG, "%d UP", debounce[idx].pin);
-                send_event(queue, debounce[idx].pin, BUTTON_UP);
-            } else if (esp_timer_get_time() >= debounce[idx].next_long_time) {
-                ESP_LOGI(TAG, "%d LONG", debounce[idx].pin);
-                debounce[idx].next_long_time = debounce[idx].next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
-                send_event(queue, debounce[idx].pin, BUTTON_HELD);
-            } else if (button_down(&debounce[idx]) && debounce[idx].next_long_time == 0) {
-                ESP_LOGI(TAG, "%d DOWN", debounce[idx].pin);
-                debounce[idx].next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
-                send_event(queue, debounce[idx].pin, BUTTON_DOWN);
+            debounce_t *d = &debounce[idx];
+            update_button(d);
+            if (button_up(d)) {
+                d->next_long_time = INT64_MAX;
+                ESP_LOGI(TAG, "%d UP", d->pin);
+                send_event(queue, d->pin, BUTTON_UP);
+            } else if (esp_timer_get_time() >= d->next_long_time) {
+                ESP_LOGI(TAG, "%d LONG", d->pin);
+                d->next_long_time = d->next_long_time + CONFIG_ESP32_BUTTON_LONG_PRESS_REPEAT_MS;
+                send_event(queue, d->pin, BUTTON_HELD);
+            } else if (button_down(d) && d->next_long_time == 0) {
+                ESP_LOGI(TAG, "%d DOWN", d->pin);
+                d->next_long_time = esp_timer_get_time() + CONFIG_ESP32_BUTTON_LONG_PRESS_DURATION_MS;
+                send_event(queue, d->pin, BUTTON_DOWN);
             } 
         }
         vTaskDelay(pdMS_TO_TICKS(10));
