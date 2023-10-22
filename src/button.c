@@ -60,8 +60,8 @@ static void button_task(void *pvParameter)
             debounce_t *d = &debounce[idx];
             update_button(d);
             if (button_up(d)) {
-                d->next_long_time = INT64_MAX;
                 ESP_LOGI(TAG, "%d UP", d->pin);
+                d->next_long_time = INT64_MAX;
                 send_event(queue, d->pin, BUTTON_UP);
             } else if (esp_timer_get_time() >= d->next_long_time) {
                 ESP_LOGI(TAG, "%d LONG", d->pin);
