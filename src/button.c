@@ -103,7 +103,7 @@ QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode
     // Scan the pin map to determine number of pins
     pin_count = 0;
     for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
-        if ((1ULL<<pin) & pin_select) {
+        if (BIT64(pin) & pin_select) {
             pin_count++;
         }
     }
@@ -115,7 +115,7 @@ QueueHandle_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode
     // Scan the pin map to determine each pin number, populate the state
     uint32_t idx = 0;
     for (gpio_num_t pin=GPIO_NUM_0; pin<=GPIO_NUM_MAX; pin++) {
-        if ((1ULL<<pin) & pin_select) {
+        if (BIT64(pin) & pin_select) {
             ESP_LOGI(TAG, "Registering button input: %d", pin);
             debounce[idx].pin = pin;
             debounce[idx].next_long_time = 0;
