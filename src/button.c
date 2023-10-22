@@ -25,10 +25,6 @@ int pin_count = -1;
 debounce_t * debounce;
 QueueHandle_t queue;
 
-static void update_button(debounce_t *d) {
-    d->history = (d->history << 1) | ((d->inverted ^ gpio_get_level(d->pin)) & 1);
-}
-
 #define MASK   0b1111000000111111
 static bool button_down(debounce_t *d) {
     if ((d->history & MASK) == 0b0000000000111111) {
@@ -58,7 +54,7 @@ static void button_task(void *pvParameter)
     for (;;) {
         for (int idx=0; idx<pin_count; idx++) {
             debounce_t *d = &debounce[idx];
-            update_button(d);
+            d->history = (d->history << 1) | ((d->inverted ^ gpio_get_level(d->pin)) & 1);
             if (button_up(d)) {
                 ESP_LOGI(TAG, "%d UP", d->pin);
                 d->next_long_time = INT64_MAX;
