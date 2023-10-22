@@ -21,7 +21,7 @@ typedef struct {
   int64_t next_long_time;
 } debounce_t;
 
-struct button_config {
+struct button {
   TaskHandle_t task;
   QueueHandle_t queue;
   debounce_t *debounce;
@@ -38,7 +38,7 @@ static void send_event(QueueHandle_t queue, gpio_num_t pin, button_event_type_t 
 
 static void button_task(void *pvParameter)
 {
-    button_config_t cfg = (button_config_t)pvParameter;
+    button_t cfg = (button_t)pvParameter;
     debounce_t *d_begin = cfg->debounce;
     debounce_t *d_end = d_begin + cfg->pin_count;
     QueueHandle_t queue = cfg->queue;
@@ -101,7 +101,7 @@ static debounce_t *debounce_alloc(uint64_t pin_select, int *num_pins) {
     return debounce;
 }
 
-void button_free(button_config_t btn) {
+void button_free(button_t btn) {
   if (btn) {
     if (btn->debounce) free(btn->debounce);
     if (btn->queue) vQueueDelete(btn->queue);
@@ -110,14 +110,14 @@ void button_free(button_config_t btn) {
 }
 
 
-button_config_t button_init(uint64_t pin_select) {
+button_t button_init(uint64_t pin_select) {
     return pulled_button_init(pin_select, GPIO_FLOATING);
 }
 
 
-button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
+button_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode)
 {
-    button_config_t btn = (button_config_t)calloc(1, sizeof(struct button_config));
+    button_t btn = (button_t)calloc(1, sizeof(struct button));
     if (!btn) {
       ESP_LOGE(TAG, "Failed to allocate a button");
       goto cleanup;
@@ -165,7 +165,7 @@ cleanup:
     return NULL;
 }
 
-BaseType_t button_poll(button_config_t btn, button_event_t *e, TickType_t ticksToWait) {
+BaseType_t button_poll(button_t btn, button_event_t *e, TickType_t ticksToWait) {
   return xQueueReceive(btn->queue, e, ticksToWait);
 }
 

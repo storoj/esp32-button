@@ -37,13 +37,13 @@ typedef struct {
     button_event_type_t event;
 } button_event_t;
 
-struct button_config;
-typedef struct button_config *button_config_t;
+struct button;
+typedef struct button *button_t;
 
-button_config_t button_init(uint64_t pin_select);
-button_config_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode);
-BaseType_t button_poll(button_config_t btn, button_event_t *e, TickType_t ticksToWait);
-void button_free(button_config_t btn);
+button_t button_init(uint64_t pin_select);
+button_t pulled_button_init(uint64_t pin_select, gpio_pull_mode_t pull_mode);
+BaseType_t button_poll(button_t btn, button_event_t *e, TickType_t ticksToWait);
+void button_free(button_t btn);
 
 #ifdef __cplusplus
 }
