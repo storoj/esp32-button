@@ -25,16 +25,18 @@ int pin_count = -1;
 debounce_t * debounce;
 QueueHandle_t queue;
 
-#define MASK   0b1111000000111111
+#define LAST   0b0000000000111111
+#define PREV   0b1111000000000000
+#define MASK   (LAST | PREV)
 static bool button_down(debounce_t *d) {
-    if ((d->history & MASK) == 0b0000000000111111) {
+    if ((d->history & MASK) == LAST) {
         d->history = 0xffff;
         return 1;
     }
     return 0;
 }
 static bool button_up(debounce_t *d) {
-    if ((d->history & MASK) == 0b1111000000000000) {
+    if ((d->history & MASK) == PREV) {
         d->history = 0x0000;
         return 1;
     }
